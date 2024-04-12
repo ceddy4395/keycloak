@@ -1,40 +1,45 @@
+# Schedules nightly workflows.
 name: Scheduled nightly workflows
 
-on: 
+on:
   schedule:
     - cron: '0 0 * * *'
   workflow_dispatch:
 
 jobs:
-
   setup:
     if: github.event_name != 'schedule' || github.repository == 'keycloak/keycloak'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     outputs:
       latest-release-branch: ${{ steps.latest-release.outputs.branch }}
+    permissions: read-all
+    timeout-minutes: 1
     steps:
-      - id: latest-release
-        run: |
-          branch="release/$(gh api repos/keycloak/keycloak/branches | jq -r '.[].name' | sort -r | awk -F'/' '/[0-9.]+$/ {print $NF; exit}')"
-          echo "branch=$branch"
-          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+      - name: Get latest release
+        id: latest-release
+        run: echo 'branch="release/$(gh api repos/keycloak/keycloak/branches | jq -r '.[].name' | sort -r | awk -F'/' '/[0-9.]+$/ {print $NF; exit}')"branch' >> "$GITHUB_OUTPUT"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Branch name
+        run: echo "branch=${{steps.latest-release.outputs.branch}}"
 
   run-default-branch:
     name: Run default branch
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: setup
-
+    permissions:
+      actions: write
+    if: github.repository == 'keycloak/keycloak'
+    timeout-minutes: 1
     strategy:
       matrix:
         workflow:
-        - ci.yml
-        - documentation.yml
-        - js-ci.yml
-        - operator-ci.yml
-        - snyk-analysis.yml
-        - trivy-analysis.yml
+          - ci.yml
+          - documentation.yml
+          - js-ci.yml
+          - operator-ci.yml
+          - snyk-analysis.yml
+          - trivy-analysis.yml
 
     steps:
       - name: Run workflow
@@ -45,16 +50,18 @@ jobs:
   run-latest-release-branch:
     name: Run latest release branch
     needs: setup
-    runs-on: ubuntu-latest
-
+    runs-on: ubuntu-22.04
+    permissions:
+      actions: write
+    if: github.repository == 'keycloak/keycloak'
+    timeout-minutes: 1
     strategy:
       matrix:
         workflow:
           - snyk-analysis.yml
 
     steps:
-      - run: echo ${{ needs.setup.outputs.latest-release-branch }}
-      - name: Run workflow
+      - name: Run workflow on latest release ${{needs.setup.outputs.latest-release-branch}}
         run: gh workflow run -R ${{ github.repository }} ${{ matrix.workflow }} --ref ${{ needs.setup.outputs.latest-release-branch }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

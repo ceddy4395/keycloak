@@ -18,33 +18,36 @@ jobs:
   update-quarkus-next-branch:
     name: Update quarkus-next branch
     if: github.event_name != 'schedule' || github.repository == 'keycloak/keycloak'
-    runs-on: ubuntu-latest
-
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    permissions:
+      actions: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@a8a3f3a
         with:
           ref: main
           fetch-depth: 0
 
-      - name: Configure Git
-        run: |
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"
+      - name: Configure Git email
+        run: git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Configure Git username
+        run: git config --global user.name "github-actions[bot]"
 
       - name: Cherry-pick additional commits in quarkus-next
-        run: |
-          ${GITHUB_WORKSPACE}/.github/scripts/prepare-quarkus-next.sh
+        run: ${GITHUB_WORKSPACE}/.github/scripts/prepare-quarkus-next.sh
 
       - name: Push changes
-        run: |
-          git push -f origin HEAD:quarkus-next
+        run: git push -f origin HEAD:quarkus-next
 
   run-matrix-with-quarkus-next:
     name: Run workflow matrix with the quarkus-next branch
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs:
       - update-quarkus-next-branch
-
+    timeout-minutes: 1
+    permissions:
+      actions: write
     strategy:
       matrix:
         workflow:

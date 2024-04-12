@@ -1,3 +1,4 @@
+# Vulnerability scanner
 name: Trivy
 
 on:
@@ -11,12 +12,15 @@ jobs:
 
   analysis:
     name: Vulnerability scanner for nightly containers
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     if: github.repository == 'keycloak/keycloak'
     strategy:
       matrix:
         container: [keycloak, keycloak-operator]
       fail-fast: false
+    permissions:
+      security-events: write
+    timeout-minutes: 5
     steps:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@d710430a6722f083d3b36b8339ff66b32f22ee55
@@ -31,6 +35,6 @@ jobs:
           timeout: 15m
 
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@1b1aada
         with:
           sarif_file: trivy-results.sarif

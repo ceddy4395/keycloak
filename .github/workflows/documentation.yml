@@ -6,6 +6,8 @@ on:
       - main
       - dependabot/**
       - quarkus-next
+    paths:
+      - docs/**
   pull_request:
   workflow_dispatch:
 
@@ -25,24 +27,32 @@ jobs:
 
   conditional:
     name: Check conditional workflows and jobs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     outputs:
       documentation: ${{ steps.conditional.outputs.documentation }}
+    timeout-minutes: 1
+    permissions: read-all
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@b4ffde6
 
       - id: conditional
+        name: Check conditions
         uses: ./.github/actions/conditional
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   build:
     name: Build
-    if: ${{ needs.conditional.outputs.documentation == 'true' }}
-    runs-on: ubuntu-latest
+    if: ${{ needs.conditional.outputs.documentation == 'true' && github.repository == 'keycloak/keycloak' }}
+    runs-on: ubuntu-22.04
     needs: conditional
+    timeout-minutes: 1
+    permissions:
+      actions: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@b4ffde6
 
       - id: setup-java
         name: Setup Java
@@ -55,12 +65,11 @@ jobs:
       - id: build-test-documentation
         name: Build and verify Keycloak documentation
         shell: bash
-        run: |
-          ./mvnw install -Dtest=!ExternalLinksTest -am -pl docs/documentation/tests,docs/documentation/dist -e -Pdocumentation
+        run: ./mvnw install -Dtest=!ExternalLinksTest -am -pl docs/documentation/tests,docs/documentation/dist -e -Pdocumentation
 
       - id: upload-keycloak-documentation
         name: Upload Keycloak documentation
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@a8a3f3a
         with:
           name: keycloak-documentation
           path: docs/documentation/dist/target/*.zip
@@ -69,10 +78,13 @@ jobs:
   external-links:
     name: External links check
     if: ${{ needs.conditional.outputs.documentation == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: conditional
+    timeout-minutes: 1
+    permissions: {}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@b4ffde6
 
       - id: setup-java
         name: Setup Java
@@ -85,18 +97,21 @@ jobs:
       - id: build-test-documentation
         name: Build and verify Keycloak documentation
         shell: bash
-        run: |
-          ./mvnw install -Dtest=ExternalLinksTest -am -pl docs/documentation/tests -e -Pdocumentation 
+        run: ./mvnw install -Dtest=ExternalLinksTest -am -pl docs/documentation/tests -e -Pdocumentation
 
   check:
     name: Status Check - Keycloak Documentation
     if: always()
+    permissions: {}
     needs:
       - conditional
       - build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    timeout-minutes: 1
     steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/status-check
+      - name: Checkout repository
+        uses: actions/checkout@b4ffde6
+      - name: Check workflow status
+        uses: ./.github/actions/status-check
         with:
           jobs: ${{ toJSON(needs) }}

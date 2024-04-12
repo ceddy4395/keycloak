@@ -6,8 +6,10 @@ on:
       - main
       - dependabot/**
       - quarkus-next
+    paths-ignore:
+      - docs/**
   pull_request:
-     branches: [main]
+    branches: [main]
   workflow_dispatch:
 
 env:
@@ -26,14 +28,18 @@ jobs:
 
   conditional:
     name: Check conditional workflows and jobs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     outputs:
       java: ${{ steps.conditional.outputs.codeql-java }}
       themes: ${{ steps.conditional.outputs.codeql-themes }}
+    permissions: read-all
+    timeout-minutes: 1
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@b4ffde6
 
       - id: conditional
+        name: Check conditionals
         uses: ./.github/actions/conditional
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -41,16 +47,18 @@ jobs:
   java:
     name: CodeQL Java
     needs: conditional
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     if: needs.conditional.outputs.java == 'true'
     outputs:
       conclusion: ${{ steps.check.outputs.conclusion }}
-
+    permissions: {}
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@b4ffde6
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@1b1aada
         with:
           languages: java
 
@@ -58,7 +66,7 @@ jobs:
         uses: ./.github/actions/build-keycloak
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@1b1aada
         with:
           wait-for-processing: true
         env:
@@ -67,16 +75,18 @@ jobs:
   themes:
     name: CodeQL Themes
     needs: conditional
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     if: needs.conditional.outputs.themes == 'true'
     outputs:
       conclusion: ${{ steps.check.outputs.conclusion }}
-
+    permissions: {}
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@b4ffde6
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@1b1aada
         env:
           CODEQL_ACTION_EXTRA_OPTIONS: '{"database":{"finalize":["--no-run-unnecessary-builds"]}}'
         with:
@@ -84,7 +94,7 @@ jobs:
           source-root: themes/src/main/
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@1b1aada
         with:
           wait-for-processing: true
         env:
@@ -97,9 +107,13 @@ jobs:
       - conditional
       - java
       - themes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    permissions: {}
+    timeout-minutes: 1
     steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/status-check
+      - name: Checkout repository
+        uses: actions/checkout@b4ffde6
+      - name: Check workflow status
+        uses: ./.github/actions/status-check
         with:
           jobs: ${{ toJSON(needs) }}

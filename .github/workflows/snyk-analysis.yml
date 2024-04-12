@@ -1,6 +1,7 @@
+# Run Snyk vulnerability checker
 name: Snyk
 
-on: 
+on:
   workflow_dispatch:
 
 env:
@@ -13,15 +14,19 @@ defaults:
 jobs:
   analysis:
     name: Analysis of Quarkus and Operator
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     if: github.repository == 'keycloak/keycloak'
+    permissions: {}
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@b4ffde6
 
       - name: Build Keycloak
         uses: ./.github/actions/build-keycloak
 
-      - uses: snyk/actions/setup@master
+      - name: Setup Snyk
+        uses: snyk/actions/setup@8349f90
 
       - name: Check for vulnerabilities in Quarkus
         run: snyk test --policy-path=${GITHUB_WORKSPACE}/.github/snyk/.snyk --all-projects --prune-repeated-subdependencies --exclude=tests --sarif-file-output=quarkus-report.sarif quarkus/deployment
@@ -30,22 +35,21 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
       - name: Upload Quarkus scanner results to GitHub
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@1b1aada
         continue-on-error: true
         with:
           sarif_file: quarkus-report.sarif
           category: snyk-quarkus-report
-
+      - name: Maven clean install
+        run: ./mvnw -Poperator -pl operator -am -DskipTests clean install
       - name: Check for vulnerabilities in Operator
-        run: |
-          ./mvnw -Poperator -pl operator -am -DskipTests clean install
-          snyk test --policy-path=${GITHUB_WORKSPACE}/.github/snyk/.snyk --all-projects --prune-repeated-subdependencies --exclude=tests --sarif-file-output=operator-report.sarif operator
+        run: snyk test --policy-path=${GITHUB_WORKSPACE}/.github/snyk/.snyk --all-projects --prune-repeated-subdependencies --exclude=tests --sarif-file-output=operator-report.sarif operator
         continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
       - name: Upload Operator scanner results to GitHub
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@1b1aada
         with:
           sarif_file: operator-report.sarif
           category: snyk-operator-report
